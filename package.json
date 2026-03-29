@@ -1,0 +1,31 @@
+{
+  "name": "nexus-ai-platform",
+  "version": "1.0.0",
+  "description": "TANGER NEXUS 2026 — Plateforme No-Code de Supervision des Agents IA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.5",
+    "ws": "^8.16.0",
+    "pg": "^8.11.3",
+    "multer": "^1.4.5-lts.1",
+    "axios": "^1.6.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["n8n", "automation", "ai-agents", "tanger-nexus", "no-code"],
+  "author": "Prime Synergy Group",
+  "license": "UNLICENSED"
+}

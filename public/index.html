@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus AI Platform — TANGER NEXUS 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">
+        <span class="logo-name">Nexus AI</span>
+        <span class="logo-sub">Prime Synergy Group</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-group">
+        <span class="nav-group-label">PRINCIPAL</span>
+        <a class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')">
+          <i class="fa-solid fa-gauge-high"></i> Dashboard
+        </a>
+        <a class="nav-item" data-page="agents" onclick="showPage('agents')">
+          <i class="fa-solid fa-robot"></i> Agents IA
+        </a>
+        <a class="nav-item" data-page="pipeline" onclick="showPage('pipeline')">
+          <i class="fa-solid fa-chart-gantt"></i> Pipeline CRM
+        </a>
+      </div>
+      <div class="nav-group">
+        <span class="nav-group-label">ACTIONS</span>
+        <a class="nav-item" data-page="research" onclick="showPage('research')">
+          <i class="fa-solid fa-magnifying-glass"></i> Recherche Cibles
+        </a>
+        <a class="nav-item" data-page="email" onclick="showPage('email')">
+          <i class="fa-solid fa-envelope"></i> Emails & Newsletter
+        </a>
+        <a class="nav-item" data-page="content" onclick="showPage('content')">
+          <i class="fa-solid fa-pen-nib"></i> Contenu & Social
+        </a>
+        <a class="nav-item" data-page="intelligence" onclick="showPage('intelligence')">
+          <i class="fa-solid fa-satellite-dish"></i> Veille & Intelligence
+        </a>
+      </div>
+      <div class="nav-group">
+        <span class="nav-group-label">SUPERVISION</span>
+        <a class="nav-item" data-page="history" onclick="showPage('history')">
+          <i class="fa-solid fa-clock-rotate-left"></i> Historique
+        </a>
+        <a class="nav-item" data-page="targets" onclick="showPage('targets')">
+          <i class="fa-solid fa-bullseye"></i> Gestion Cibles
+        </a>
+        <a class="nav-item" data-page="settings" onclick="showPage('settings')">
+          <i class="fa-solid fa-gear"></i> Configuration
+        </a>
+      </div>
+    </nav>
+
+    <div class="sidebar-status">
+      <div class="ws-indicator" id="wsIndicator">
+        <span class="ws-dot"></span>
+        <span class="ws-text">Connexion...</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <main class="main-content">
+    <!-- Top Bar -->
+    <header class="topbar">
+      <button class="sidebar-toggle" onclick="toggleSidebar()">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+      <div class="topbar-title" id="pageTitle">Dashboard</div>
+      <div class="topbar-right">
+        <div class="project-badge">
+          <i class="fa-solid fa-calendar-days"></i>
+          TANGER NEXUS 2026 — Oct 21
+        </div>
+        <div class="notif-btn" onclick="showPage('history')">
+          <i class="fa-solid fa-bell"></i>
+          <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ─── PAGES ────────────────────────────────────────────── -->
+
+    <!-- DASHBOARD -->
+    <section class="page active" id="page-dashboard">
+      <div class="page-header">
+        <h1>Dashboard Exécutif</h1>
+        <p class="page-sub">Vue temps réel — Semaine du <span id="currentWeek"></span></p>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid" id="kpiGrid">
+        <div class="kpi-card" data-key="cibles_identifiees">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+            <i class="fa-solid fa-crosshairs"></i>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpi-cibles_identifiees">0</div>
+            <div class="kpi-label">Cibles identifiées</div>
+            <div class="kpi-progress">
+              <div class="kpi-progress-bar" id="prog-cibles_identifiees" style="width:0%"></div>
+            </div>
+            <div class="kpi-target">Obj Q2: <strong>100</strong></div>
+          </div>
+        </div>
+        <div class="kpi-card" data-key="fiches_creees">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#3b82f6,#06b6d4)">
+            <i class="fa-solid fa-file-lines"></i>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpi-fiches_creees">0</div>
+            <div class="kpi-label">Fiches créées</div>
+            <div class="kpi-progress">
+              <div class="kpi-progress-bar" id="prog-fiches_creees" style="width:0%"></div>
+            </div>
+            <div class="kpi-target">Obj Q2: <strong>50</strong></div>
+          </div>
+        </div>
+        <div class="kpi-card" data-key="emails_envoyes">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#10b981,#84cc16)">
+            <i class="fa-solid fa-paper-plane"></i>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpi-emails_envoyes">0</div>
+            <div class="kpi-label">Emails envoyés</div>
+            <div class="kpi-progress">
+              <div class="kpi-progress-bar" id="prog-emails_envoyes" style="width:0%"></div>
+            </div>
+            <div class="kpi-target">Obj Q2: <strong>30</strong></div>
+          </div>
+        </div>
+        <div class="kpi-card" data-key="rdv_obtenus">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">
+            <i class="fa-solid fa-handshake"></i>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpi-rdv_obtenus">0</div>
+            <div class="kpi-label">RDV obtenus</div>
+            <div class="kpi-progress">
+              <div class="kpi-progress-bar" id="prog-rdv_obtenus" style="width:0%"></div>
+            </div>
+            <div class="kpi-target">Obj Q2: <strong>8</strong></div>
+          </div>
+        </div>
+        <div class="kpi-card" data-key="sponsors_confirmes">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#7c3aed,#ec4899)">
+            <i class="fa-solid fa-star"></i>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpi-sponsors_confirmes">0</div>
+            <div class="kpi-label">Sponsors confirmés</div>
+            <div class="kpi-progress">
+              <div class="kpi-progress-bar" id="prog-sponsors_confirmes" style="width:0%"></div>
+            </div>
+            <div class="kpi-target">Obj Q2: <strong>3</strong></div>
+          </div>
+        </div>
+        <div class="kpi-card" data-key="exposants_confirmes">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#dc2626,#f97316)">
+            <i class="fa-solid fa-store"></i>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpi-exposants_confirmes">0</div>
+            <div class="kpi-label">Exposants confirmés</div>
+            <div class="kpi-progress">
+              <div class="kpi-progress-bar" id="prog-exposants_confirmes" style="width:0%"></div>
+            </div>
+            <div class="kpi-target">Obj Q2: <strong>15</strong></div>
+          </div>
+        </div>
+        <div class="kpi-card" data-key="newsletters_envoyees">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#0891b2,#3b82f6)">
+            <i class="fa-solid fa-newspaper"></i>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpi-newsletters_envoyees">0</div>
+            <div class="kpi-label">Newsletters envoyées</div>
+            <div class="kpi-progress">
+              <div class="kpi-progress-bar" id="prog-newsletters_envoyees" style="width:0%"></div>
+            </div>
+            <div class="kpi-target">Obj Q2: <strong>3</strong></div>
+          </div>
+        </div>
+        <div class="kpi-card" data-key="workflows_actifs">
+          <div class="kpi-icon" style="background:linear-gradient(135deg,#16a34a,#065f46)">
+            <i class="fa-solid fa-gears"></i>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpi-workflows_actifs">0</div>
+            <div class="kpi-label">Workflows actifs</div>
+            <div class="kpi-progress">
+              <div class="kpi-progress-bar" id="prog-workflows_actifs" style="width:0%"></div>
+            </div>
+            <div class="kpi-target">Obj: <strong>12</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Update KPIs panel -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h3><i class="fa-solid fa-pen-to-square"></i> Mettre à jour les KPIs manuellement</h3>
+        </div>
+        <div class="card-body">
+          <form class="kpi-update-form" onsubmit="updateKPIs(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Cibles identifiées</label>
+                <input type="number" min="0" id="upd-cibles_identifiees" placeholder="0" />
+              </div>
+              <div class="form-group">
+                <label>Fiches créées</label>
+                <input type="number" min="0" id="upd-fiches_creees" placeholder="0" />
+              </div>
+              <div class="form-group">
+                <label>Emails envoyés</label>
+                <input type="number" min="0" id="upd-emails_envoyes" placeholder="0" />
+              </div>
+              <div class="form-group">
+                <label>RDV obtenus</label>
+                <input type="number" min="0" id="upd-rdv_obtenus" placeholder="0" />
+              </div>
+              <div class="form-group">
+                <label>Sponsors confirmés</label>
+                <input type="number" min="0" id="upd-sponsors_confirmes" placeholder="0" />
+              </div>
+              <div class="form-group">
+                <label>Exposants confirmés</label>
+                <input type="number" min="0" id="upd-exposants_confirmes" placeholder="0" />
+              </div>
+              <div class="form-group">
+                <label>Newsletters</label>
+                <input type="number" min="0" id="upd-newsletters_envoyees" placeholder="0" />
+              </div>
+              <div class="form-group">
+                <label>Workflows actifs</label>
+                <input type="number" min="0" id="upd-workflows_actifs" placeholder="0" />
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">
+              <i class="fa-solid fa-floppy-disk"></i> Enregistrer les KPIs
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h3><i class="fa-solid fa-bolt"></i> Activité récente</h3>
+          <button class="btn btn-sm btn-ghost" onclick="loadRuns()">
+            <i class="fa-solid fa-rotate"></i> Actualiser
+          </button>
+        </div>
+        <div class="card-body p-0">
+          <div id="recentRuns" class="runs-list">
+            <div class="empty-state">
+              <i class="fa-solid fa-clock-rotate-left"></i>
+              <p>Aucune exécution récente. Déclenchez un agent IA pour commencer.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AGENTS IA -->
+    <section class="page" id="page-agents">
+      <div class="page-header">
+        <h1>Agents IA</h1>
+        <p class="page-sub">12 agents opérationnels — cliquez pour déclencher sans code</p>
+      </div>
+
+      <div class="agent-filters">
+        <button class="filter-btn active" data-filter="all" onclick="filterAgents('all', this)">Tous</button>
+        <button class="filter-btn" data-filter="research" onclick="filterAgents('research', this)">🔍 Recherche</button>
+        <button class="filter-btn" data-filter="commercial" onclick="filterAgents('commercial', this)">🎯 Commercial</button>
+        <button class="filter-btn" data-filter="marketing" onclick="filterAgents('marketing', this)">📧 Marketing</button>
+        <button class="filter-btn" data-filter="intelligence" onclick="filterAgents('intelligence', this)">📡 Intelligence</button>
+        <button class="filter-btn" data-filter="reporting" onclick="filterAgents('reporting', this)">📊 Reporting</button>
+        <button class="filter-btn" data-filter="ops" onclick="filterAgents('ops', this)">⚙️ Ops</button>
+        <button class="filter-btn" data-filter="governance" onclick="filterAgents('governance', this)">🔐 Validation</button>
+      </div>
+
+      <div class="agents-grid" id="agentsGrid">
+        <!-- Populated by JS -->
+      </div>
+    </section>
+
+    <!-- PIPELINE CRM -->
+    <section class="page" id="page-pipeline">
+      <div class="page-header">
+        <h1>Pipeline Commercial</h1>
+        <p class="page-sub">Glissez-déposez les cibles entre les étapes</p>
+        <button class="btn btn-primary" onclick="showPage('targets')">
+          <i class="fa-solid fa-plus"></i> Ajouter une cible
+        </button>
+      </div>
+      <div class="kanban-board" id="kanbanBoard">
+        <!-- Populated by JS -->
+      </div>
+    </section>
+
+    <!-- RECHERCHE CIBLES -->
+    <section class="page" id="page-research">
+      <div class="page-header">
+        <h1>Recherche Cibles</h1>
+        <p class="page-sub">Lancer WF-03 pour générer une fiche cible complète via OpenAI</p>
+      </div>
+      <div class="split-layout">
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fa-solid fa-magnifying-glass"></i> Nouvelle Fiche Cible (WF-03)</h3>
+          </div>
+          <div class="card-body">
+            <div id="wf03-form"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3><i class="fa-solid fa-list"></i> Watchlist Prospects Chauds</h3>
+          </div>
+          <div class="card-body p-0">
+            <div class="prospects-list">
+              <div class="prospect-item hot" onclick="prefillResearch('Attijariwafa Bank', 'Finance', 'Sponsor Platine')">
+                <div class="prospect-badge hot">🔴 HOT</div>
+                <div class="prospect-info">
+                  <strong>Attijariwafa Bank</strong>
+                  <span>Finance — Budget marketing Q2 2026</span>
+                </div>
+                <button class="btn btn-sm btn-ghost"><i class="fa-solid fa-arrow-right"></i></button>
+              </div>
+              <div class="prospect-item hot" onclick="prefillResearch('OCP Group', 'Industrie', 'Sponsor Platine')">
+                <div class="prospect-badge hot">🔴 HOT</div>
+                <div class="prospect-info">
+                  <strong>OCP Group</strong>
+                  <span>Industrie — Programmes RSE et innovation</span>
+                </div>
+                <button class="btn btn-sm btn-ghost"><i class="fa-solid fa-arrow-right"></i></button>
+              </div>
+              <div class="prospect-item hot" onclick="prefillResearch('Maroc Telecom', 'Télécoms', 'Sponsor Or')">
+                <div class="prospect-badge hot">🔴 HOT</div>
+                <div class="prospect-info">
+                  <strong>Maroc Telecom</strong>
+                  <span>Télécoms — Partenariats événementiels</span>
+                </div>
+                <button class="btn btn-sm btn-ghost"><i class="fa-solid fa-arrow-right"></i></button>
+              </div>
+              <div class="prospect-item hot" onclick="prefillResearch('Renault Maroc', 'Automobile', 'Sponsor Or')">
+                <div class="prospect-badge hot">🔴 HOT</div>
+                <div class="prospect-info">
+                  <strong>Renault Maroc</strong>
+                  <span>Auto — Plan produit 2026</span>
+                </div>
+                <button class="btn btn-sm btn-ghost"><i class="fa-solid fa-arrow-right"></i></button>
+              </div>
+              <div class="prospect-item warm" onclick="prefillResearch('BMCE Bank', 'Finance', 'Sponsor Argent')">
+                <div class="prospect-badge warm">🟠 WARM</div>
+                <div class="prospect-info">
+                  <strong>BMCE Bank</strong>
+                  <span>Finance — Nouvelles nominations</span>
+                </div>
+                <button class="btn btn-sm btn-ghost"><i class="fa-solid fa-arrow-right"></i></button>
+              </div>
+              <div class="prospect-item warm" onclick="prefillResearch('Lafarge Maroc', 'Matériaux', 'Exposant')">
+                <div class="prospect-badge warm">🟠 WARM</div>
+                <div class="prospect-info">
+                  <strong>Lafarge Maroc</strong>
+                  <span>Matériaux — Stratégie ESG</span>
+                </div>
+                <button class="btn btn-sm btn-ghost"><i class="fa-solid fa-arrow-right"></i></button>
+              </div>
+              <div class="prospect-item warm" onclick="prefillResearch('Total Maroc', 'Énergie', 'Exposant')">
+                <div class="prospect-badge warm">🟠 WARM</div>
+                <div class="prospect-info">
+                  <strong>Total Maroc</strong>
+                  <span>Énergie — Transition énergétique</span>
+                </div>
+                <button class="btn btn-sm btn-ghost"><i class="fa-solid fa-arrow-right"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EMAIL & NEWSLETTER -->
+    <section class="page" id="page-email">
+      <div class="page-header">
+        <h1>Emails & Newsletter</h1>
+        <p class="page-sub">Génération et envoi via Brevo — validation obligatoire (WF-12)</p>
+      </div>
+      <div class="tabs-container">
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab(this, 'tab-email')">✉️ Email Prospection (WF-04)</button>
+          <button class="tab" onclick="switchTab(this, 'tab-newsletter')">📧 Newsletter (WF-05)</button>
+          <button class="tab" onclick="switchTab(this, 'tab-validate')">🔐 Validation (WF-12)</button>
+        </div>
+        <div class="tab-content active" id="tab-email">
+          <div class="card">
+            <div class="card-header"><h3>Créer un email de prospection personnalisé</h3></div>
+            <div class="card-body"><div id="wf04-form"></div></div>
+          </div>
+        </div>
+        <div class="tab-content" id="tab-newsletter">
+          <div class="card">
+            <div class="card-header"><h3>Créer une newsletter complète (HTML + Brevo)</h3></div>
+            <div class="card-body"><div id="wf05-form"></div></div>
+          </div>
+        </div>
+        <div class="tab-content" id="tab-validate">
+          <div class="card">
+            <div class="card-header"><h3>Gate de Validation — Approuver un livrable</h3></div>
+            <div class="card-body"><div id="wf12-form"></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTENU & SOCIAL -->
+    <section class="page" id="page-content">
+      <div class="page-header">
+        <h1>Contenu & Social Media</h1>
+        <p class="page-sub">Générer des posts multi-plateformes et structurer des réunions</p>
+      </div>
+      <div class="split-layout">
+        <div class="card">
+          <div class="card-header"><h3><i class="fa-solid fa-share-nodes"></i> Pack Social Media (WF-06)</h3></div>
+          <div class="card-body"><div id="wf06-form"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3><i class="fa-solid fa-clipboard"></i> Note de Réunion (WF-08)</h3></div>
+          <div class="card-body"><div id="wf08-form"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VEILLE & INTELLIGENCE -->
+    <section class="page" id="page-intelligence">
+      <div class="page-header">
+        <h1>Veille & Intelligence</h1>
+        <p class="page-sub">Déclenchement manuel de WF-07 + WF-02</p>
+      </div>
+      <div class="split-layout">
+        <div class="card">
+          <div class="card-header"><h3><i class="fa-solid fa-satellite-dish"></i> Veille Concurrentielle (WF-07)</h3></div>
+          <div class="card-body">
+            <div id="wf07-form"></div>
+            <div class="info-box mt-3">
+              <i class="fa-solid fa-info-circle"></i>
+              Automatiquement exécuté <strong>chaque lundi à 7h00</strong>.
+              Ce bouton permet un déclenchement immédiat.
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3><i class="fa-solid fa-globe"></i> Fiche Contexte Marché (WF-02)</h3></div>
+          <div class="card-body"><div id="wf02-form"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTORIQUE -->
+    <section class="page" id="page-history">
+      <div class="page-header">
+        <h1>Historique des Exécutions</h1>
+        <p class="page-sub">Log complet de toutes les actions des agents IA</p>
+        <button class="btn btn-ghost" onclick="loadRuns()">
+          <i class="fa-solid fa-rotate"></i> Actualiser
+        </button>
+      </div>
+      <div class="card">
+        <div class="card-body p-0">
+          <div id="historyRuns" class="runs-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GESTION CIBLES -->
+    <section class="page" id="page-targets">
+      <div class="page-header">
+        <h1>Gestion des Cibles</h1>
+        <p class="page-sub">Ajouter et suivre vos prospects commerciaux</p>
+      </div>
+      <div class="split-layout">
+        <div class="card">
+          <div class="card-header"><h3><i class="fa-solid fa-plus"></i> Ajouter une cible</h3></div>
+          <div class="card-body">
+            <form class="form-stack" onsubmit="addTarget(event)">
+              <div class="form-group">
+                <label>Nom de l'entreprise *</label>
+                <input type="text" id="tgt-company" required placeholder="Ex: OCP Group" />
+              </div>
+              <div class="form-group">
+                <label>Secteur *</label>
+                <input type="text" id="tgt-sector" required placeholder="Ex: Industrie, Finance..." />
+              </div>
+              <div class="form-group">
+                <label>Type d'offre *</label>
+                <select id="tgt-offer">
+                  <option value="Sponsor Platine">Sponsor Platine</option>
+                  <option value="Sponsor Or">Sponsor Or</option>
+                  <option value="Sponsor Argent">Sponsor Argent</option>
+                  <option value="Exposant">Exposant</option>
+                  <option value="Institutionnel">Institutionnel</option>
+                  <option value="Média">Média</option>
+                  <option value="Speaker">Speaker</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Priorité</label>
+                <select id="tgt-priority">
+                  <option value="hot">🔴 Hot</option>
+                  <option value="warm">🟠 Warm</option>
+                  <option value="cold">🔵 Cold</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Contact décideur</label>
+                <input type="text" id="tgt-contact" placeholder="Nom + titre" />
+              </div>
+              <div class="form-group">
+                <label>Email contact</label>
+                <input type="email" id="tgt-email" placeholder="contact@entreprise.ma" />
+              </div>
+              <div class="btn-group">
+                <button type="submit" class="btn btn-primary">
+                  <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="triggerResearchFromForm()">
+                  <i class="fa-solid fa-magnifying-glass"></i> + Lancer WF-03
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3><i class="fa-solid fa-table"></i> Toutes les cibles</h3></div>
+          <div class="card-body p-0">
+            <div id="targetsList" class="targets-table-container">
+              <div class="empty-state">
+                <i class="fa-solid fa-bullseye"></i>
+                <p>Aucune cible enregistrée. Commencez à prospecter !</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONFIGURATION -->
+    <section class="page" id="page-settings">
+      <div class="page-header">
+        <h1>Configuration</h1>
+        <p class="page-sub">Paramètres de la plateforme et connexions API</p>
+      </div>
+      <div class="settings-grid">
+        <div class="card">
+          <div class="card-header"><h3><i class="fa-solid fa-link"></i> Connexions</h3></div>
+          <div class="card-body">
+            <div id="platformStatus" class="status-grid">Chargement...</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3><i class="fa-brands fa-docker"></i> Déploiement Hostinger</h3></div>
+          <div class="card-body">
+            <div class="deploy-steps">
+              <div class="deploy-step">
+                <div class="step-num">1</div>
+                <div class="step-body">
+                  <strong>Accéder à Hostinger hPanel</strong>
+                  <p>Aller sur hpanel.hostinger.com → primesynergy.ma → Terminal SSH</p>
+                </div>
+              </div>
+              <div class="deploy-step">
+                <div class="step-num">2</div>
+                <div class="step-body">
+                  <strong>Uploader les fichiers</strong>
+                  <p>Via File Manager ou <code>scp -r nexus-ai-platform/ user@srv:</code></p>
+                </div>
+              </div>
+              <div class="deploy-step">
+                <div class="step-num">3</div>
+                <div class="step-body">
+                  <strong>Installer les dépendances</strong>
+                  <code>cd nexus-ai-platform && npm install --production</code>
+                </div>
+              </div>
+              <div class="deploy-step">
+                <div class="step-num">4</div>
+                <div class="step-body">
+                  <strong>Configurer .env</strong>
+                  <p>Copier .env.example → .env et remplir les clés API</p>
+                </div>
+              </div>
+              <div class="deploy-step">
+                <div class="step-num">5</div>
+                <div class="step-body">
+                  <strong>Démarrer avec PM2</strong>
+                  <code>npm install -g pm2 && pm2 start server.js --name nexus-platform</code>
+                </div>
+              </div>
+              <div class="deploy-step">
+                <div class="step-num">6</div>
+                <div class="step-body">
+                  <strong>Démarrer n8n (Docker)</strong>
+                  <code>docker-compose up -d n8n</code>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3><i class="fa-solid fa-database"></i> SQL — Créer les tables PostgreSQL</h3></div>
+          <div class="card-body">
+            <pre class="code-block">CREATE TABLE IF NOT EXISTS targets (
+  id VARCHAR(50) PRIMARY KEY,
+  project_id VARCHAR(50),
+  company_name VARCHAR(255),
+  sector VARCHAR(100),
+  status VARCHAR(50) DEFAULT 'identified',
+  priority VARCHAR(20),
+  offer_type VARCHAR(100),
+  contact_name VARCHAR(255),
+  contact_email VARCHAR(255),
+  last_contact_date TIMESTAMP,
+  next_action VARCHAR(50),
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS run_logs (
+  id SERIAL PRIMARY KEY,
+  run_id VARCHAR(100),
+  workflow_id VARCHAR(20),
+  status VARCHAR(50),
+  payload JSONB,
+  result JSONB,
+  started_at TIMESTAMP DEFAULT NOW(),
+  completed_at TIMESTAMP
+);</pre>
+            <button class="btn btn-ghost mt-2" onclick="copySQL()">
+              <i class="fa-solid fa-copy"></i> Copier le SQL
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══ MODAL AGENT ═══ -->
+  <div class="modal-overlay" id="modalOverlay" onclick="closeModal()"></div>
+  <div class="modal" id="agentModal">
+    <div class="modal-header">
+      <div class="modal-title-area">
+        <span class="modal-icon" id="modalIcon"></span>
+        <div>
+          <h2 id="modalTitle">Agent</h2>
+          <p id="modalDesc" class="modal-desc"></p>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <form id="agentForm" onsubmit="submitAgent(event)">
+        <div id="agentFields"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" onclick="closeModal()">Annuler</button>
+          <button type="submit" class="btn btn-primary" id="submitBtn">
+            <i class="fa-solid fa-bolt"></i> Déclencher l'agent
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══ TOAST ═══ -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

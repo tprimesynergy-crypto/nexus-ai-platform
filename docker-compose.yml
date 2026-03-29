@@ -1,0 +1,160 @@
+version: '3.8'
+
+# ═══════════════════════════════════════════════════════════════
+# TANGER NEXUS 2026 — Stack complète
+# n8n (automation) + Nexus Platform (no-code UI) + PostgreSQL
+# Prime Synergy Group
+# ═══════════════════════════════════════════════════════════════
+
+services:
+
+  # ─── PostgreSQL ───────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: nexus-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: tanger_nexus
+      POSTGRES_USER: nexus_user
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-nexus_secure_2026}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus_user -d tanger_nexus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nexus-network
+
+  # ─── n8n (Automation Engine) ──────────────────────────────────
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: nexus-n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=${N8N_HOST:-n8n.primesynergy.ma}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://${N8N_HOST:-n8n.primesynergy.ma}/
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-change-this-encryption-key-32chars}
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-nexus2026secure}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n_db
+      - DB_POSTGRESDB_USER=nexus_user
+      - DB_POSTGRESDB_PASSWORD=${PG_PASSWORD:-nexus_secure_2026}
+      - N8N_LOG_LEVEL=info
+      - N8N_METRICS=true
+      - EXECUTIONS_PROCESS=main
+      - EXECUTIONS_MODE=queue
+      - N8N_PUSH_BACKEND=websocket
+      - GENERIC_TIMEZONE=Africa/Casablanca
+      - TZ=Africa/Casablanca
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./N8N_WORKFLOWS:/home/node/workflows:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nexus-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`${N8N_HOST:-n8n.primesynergy.ma}`)"
+      - "traefik.http.routers.n8n.tls=true"
+      - "traefik.http.routers.n8n.tls.certresolver=letsencrypt"
+
+  # ─── Nexus AI Platform (No-Code UI) ──────────────────────────
+  nexus-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nexus-platform
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - N8N_BASE_URL=http://n8n:5678
+      - N8N_API_KEY=${N8N_API_KEY:-}
+      - N8N_WEBHOOK_BASE=https://${N8N_HOST:-n8n.primesynergy.ma}/webhook
+      - WEBHOOK_WF01=https://${N8N_HOST:-n8n.primesynergy.ma}/webhook/wf01-intake
+      - WEBHOOK_WF02=https://${N8N_HOST:-n8n.primesynergy.ma}/webhook/wf02-context
+      - WEBHOOK_WF03=https://${N8N_HOST:-n8n.primesynergy.ma}/webhook/wf03-research
+      - WEBHOOK_WF04=https://${N8N_HOST:-n8n.primesynergy.ma}/webhook/wf04-email
+      - WEBHOOK_WF05=https://${N8N_HOST:-n8n.primesynergy.ma}/webhook/wf05-newsletter
+      - WEBHOOK_WF06=https://${N8N_HOST:-n8n.primesynergy.ma}/webhook/wf06-social
+      - WEBHOOK_WF07=https://${N8N_HOST:-n8n.primesynergy.ma}/webhook/wf07-veille
+      - WEBHOOK_WF08=https://${N8N_HOST:-n8n.primesynergy.ma}/webhook/wf08-meeting
+      - WEBHOOK_WF09=https://${N8N_HOST:-n8n.primesynergy.ma}/webhook/wf09-pipeline
+      - WEBHOOK_WF10=https://${N8N_HOST:-n8n.primesynergy.ma}/webhook/wf10-dashboard
+      - WEBHOOK_WF11=https://${N8N_HOST:-n8n.primesynergy.ma}/webhook/wf11-archive
+      - WEBHOOK_WF12=https://${N8N_HOST:-n8n.primesynergy.ma}/webhook/wf12-gate
+      - PG_HOST=postgres
+      - PG_PORT=5432
+      - PG_DATABASE=tanger_nexus
+      - PG_USER=nexus_user
+      - PG_PASSWORD=${PG_PASSWORD:-nexus_secure_2026}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-b86.messaoudi@gmail.com}
+    depends_on:
+      - postgres
+      - n8n
+    networks:
+      - nexus-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.platform.rule=Host(`platform.primesynergy.ma`)"
+      - "traefik.http.routers.platform.tls=true"
+      - "traefik.http.routers.platform.tls.certresolver=letsencrypt"
+
+  # ─── Traefik (Reverse Proxy + SSL Let's Encrypt) ─────────────
+  traefik:
+    image: traefik:v3.0
+    container_name: nexus-traefik
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    command:
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ADMIN_EMAIL:-b86.messaoudi@gmail.com}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--log.level=INFO"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    networks:
+      - nexus-network
+
+# ─── Volumes ──────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    name: nexus_postgres_data
+  n8n_data:
+    name: nexus_n8n_data
+  letsencrypt:
+    name: nexus_letsencrypt
+
+# ─── Network ──────────────────────────────────────────────────
+networks:
+  nexus-network:
+    name: nexus-network
+    driver: bridge
