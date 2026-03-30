@@ -1,8 +1,8 @@
-/**
- * ═══════════════════════════════════════════════════════════════
- * NEXUS AI PLATFORM — Routes: Workflows (12 Agents IA)
+﻿/**
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+ * NEXUS AI PLATFORM â€” Routes: Workflows (12 Agents IA)
  * TANGER NEXUS 2026 | Prime Synergy Group
- * ═══════════════════════════════════════════════════════════════
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  */
 
 const express = require('express');
@@ -15,10 +15,10 @@ const WORKFLOWS = {
   'WF-01': { name: 'Intake & Qualification', webhook: process.env.WEBHOOK_WF01, category: 'pipeline' },
   'WF-02': { name: 'Context & Brief', webhook: process.env.WEBHOOK_WF02, category: 'research' },
   'WF-03': { name: 'Research & Scoring', webhook: process.env.WEBHOOK_WF03, category: 'research' },
-  'WF-04': { name: 'Email Personnalisé', webhook: process.env.WEBHOOK_WF04, category: 'outreach' },
+  'WF-04': { name: 'Email PersonnalisÃ©', webhook: process.env.WEBHOOK_WF04, category: 'outreach' },
   'WF-05': { name: 'Newsletter', webhook: process.env.WEBHOOK_WF05, category: 'content' },
   'WF-06': { name: 'Social Media', webhook: process.env.WEBHOOK_WF06, category: 'content' },
-  'WF-07': { name: 'Veille Stratégique', webhook: process.env.WEBHOOK_WF07, category: 'research' },
+  'WF-07': { name: 'Veille StratÃ©gique', webhook: process.env.WEBHOOK_WF07, category: 'research' },
   'WF-08': { name: 'Meeting Prep', webhook: process.env.WEBHOOK_WF08, category: 'pipeline' },
   'WF-09': { name: 'Pipeline Update', webhook: process.env.WEBHOOK_WF09, category: 'pipeline' },
   'WF-10': { name: 'Dashboard KPIs', webhook: process.env.WEBHOOK_WF10, category: 'reporting' },
@@ -26,7 +26,7 @@ const WORKFLOWS = {
   'WF-12': { name: 'Gate Approbation', webhook: process.env.WEBHOOK_WF12, category: 'pipeline' }
 };
 
-// ── GET /api/workflows — Liste tous les agents ────────────────
+// â”€â”€ GET /api/workflows â€” Liste tous les agents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get('/', (req, res) => {
   const workflows = Object.entries(WORKFLOWS).map(([id, wf]) => ({
     id,
@@ -38,7 +38,7 @@ router.get('/', (req, res) => {
   res.json({ success: true, workflows, total: workflows.length });
 });
 
-// ── GET /api/workflows/:wfId — Détail d'un agent ─────────────
+// â”€â”€ GET /api/workflows/:wfId â€” DÃ©tail d'un agent â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get('/:wfId', (req, res) => {
   const { wfId } = req.params;
   const wf = WORKFLOWS[wfId.toUpperCase()];
@@ -54,7 +54,7 @@ router.get('/:wfId', (req, res) => {
   });
 });
 
-// ── POST /api/trigger/:wfId — Déclencher un agent ────────────
+// â”€â”€ POST /api/trigger/:wfId â€” DÃ©clencher un agent â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.post('/trigger/:wfId', asyncHandler(async (req, res) => {
   const { wfId } = req.params;
   const wfKey = wfId.toUpperCase();
@@ -95,12 +95,12 @@ router.post('/trigger/:wfId', asyncHandler(async (req, res) => {
     });
   }
 
-  // Déclencher le webhook n8n
+  // DÃ©clencher le webhook n8n
   if (!wf.webhook) {
-    // Mode démo — simuler résultat
+    // Mode dÃ©mo â€” simuler rÃ©sultat
     setTimeout(() => {
       run.status = 'completed';
-      run.result = { demo: true, message: `[DEMO] ${wf.name} simulé avec succès` };
+      run.result = { demo: true, message: `[DEMO] ${wf.name} simulÃ© avec succÃ¨s` };
       run.completedAt = new Date().toISOString();
       if (wss) {
         const msg = JSON.stringify({ type: 'run_completed', run });
@@ -111,7 +111,7 @@ router.post('/trigger/:wfId', asyncHandler(async (req, res) => {
     return res.json({ success: true, runId, status: 'running', mode: 'demo', message: `[DEMO] ${wf.name} en cours...` });
   }
 
-  // Appel réel à n8n
+  // Appel rÃ©el Ã  n8n
   try {
     const response = await fetch(wf.webhook, {
       method: 'POST',
@@ -120,12 +120,12 @@ router.post('/trigger/:wfId', asyncHandler(async (req, res) => {
       timeout: 5000
     });
 
-    const n8nResult = await response.json().catch(() => ({ raw: await response.text() }));
+    const n8nResult = await response.json().catch(async () => ({ raw: await response.text() }));
 
     res.json({
       success: true, runId, status: 'triggered',
       n8nStatus: response.status,
-      message: `${wf.name} déclenché → n8n`
+      message: `${wf.name} dÃ©clenchÃ© â†’ n8n`
     });
   } catch (err) {
     run.status = 'error';
@@ -138,7 +138,7 @@ router.post('/trigger/:wfId', asyncHandler(async (req, res) => {
   }
 }));
 
-// ── GET /api/runs — Historique exécutions ─────────────────────
+// â”€â”€ GET /api/runs â€” Historique exÃ©cutions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get('/runs/history', asyncHandler(async (req, res) => {
   const db = req.app.locals.db;
   const { wfId, status, limit = 50 } = req.query;
@@ -161,7 +161,7 @@ router.get('/runs/history', asyncHandler(async (req, res) => {
   res.json({ success: true, runs: runs.slice(0, parseInt(limit)), total: runs.length });
 }));
 
-// ── POST /api/callback/:runId — Résultat n8n ──────────────────
+// â”€â”€ POST /api/callback/:runId â€” RÃ©sultat n8n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.post('/callback/:runId', asyncHandler(async (req, res) => {
   const { runId } = req.params;
   const { status, result, error } = req.body;
@@ -195,3 +195,4 @@ router.post('/callback/:runId', asyncHandler(async (req, res) => {
 }));
 
 module.exports = router;
+
