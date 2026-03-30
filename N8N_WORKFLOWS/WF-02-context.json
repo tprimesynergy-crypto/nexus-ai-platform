@@ -1,0 +1,91 @@
+{
+  "name": "WF-02 — Context & Brief Événement",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf02-context",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-wf02",
+      "name": "Webhook Context",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT p.*, COUNT(t.id) as total_targets, SUM(CASE WHEN t.status = 'won' THEN 1 ELSE 0 END) as sponsors_confirms FROM projects p LEFT JOIN targets t ON t.project_id = p.id WHERE p.id = 'TNG-NEXUS-2026' GROUP BY p.id",
+        "additionalFields": {}
+      },
+      "id": "get-project",
+      "name": "Récupérer Projet",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "claude-sonnet-4-6" },
+            { "name": "max_tokens", "value": "1500" },
+            {
+              "name": "messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"Génère un brief stratégique complet pour l'équipe commerciale de TANGER NEXUS EXPO & SUMMIT 2026. Données actuelles: {{ $json.total_targets }} cibles identifiées, {{ $json.sponsors_confirms }} sponsors confirmés, date événement: 21 octobre 2026 à Tanger. Inclure: pitch événement, arguments de vente clés par secteur, objections courantes et réponses, grille tarifaire recommandée, timeline commerciale. Format structuré pour usage interne.\" }]"
+            }
+          ]
+        }
+      },
+      "id": "claude-brief",
+      "name": "Générer Brief Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO deliverables (id, project_id, deliverable_type, status, file_path) VALUES ($1, 'TNG-NEXUS-2026', 'context_brief', 'approved', $2) ON CONFLICT DO NOTHING",
+        "additionalFields": {}
+      },
+      "id": "save-brief",
+      "name": "Sauvegarder Brief",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, brief: $('Générer Brief Claude').first().json.content[0].text }) }}"
+      },
+      "id": "respond",
+      "name": "Répondre",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1100, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Context": { "main": [[{ "node": "Récupérer Projet", "type": "main", "index": 0 }]] },
+    "Récupérer Projet": { "main": [[{ "node": "Générer Brief Claude", "type": "main", "index": 0 }]] },
+    "Générer Brief Claude": { "main": [[{ "node": "Sauvegarder Brief", "type": "main", "index": 0 }]] },
+    "Sauvegarder Brief": { "main": [[{ "node": "Répondre", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": ["nexus-2026", "context", "brief"]
+}

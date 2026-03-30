@@ -1,0 +1,117 @@
+{
+  "name": "WF-10 — Dashboard KPIs & Rapport Hebdo",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 8 * * 1" }] }
+      },
+      "id": "schedule-monday",
+      "name": "Lundi 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT cibles_identifiees, fiches_creees, emails_envoyes, rdv_obtenus, sponsors_confirmes, exposants_confirmes, revenus_confirmes FROM vw_kpis WHERE project_id = 'TNG-NEXUS-2026'",
+        "additionalFields": {}
+      },
+      "id": "get-kpis",
+      "name": "Récupérer KPIs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT workflow_id, COUNT(*) as total_runs, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) as success, ROUND(AVG(CASE WHEN duration_ms IS NOT NULL THEN duration_ms ELSE 0 END)/1000, 1) as avg_seconds FROM run_logs WHERE started_at > NOW() - INTERVAL '7 days' GROUP BY workflow_id ORDER BY total_runs DESC",
+        "additionalFields": {}
+      },
+      "id": "get-workflow-stats",
+      "name": "Stats Workflows",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [460, 500],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "claude-haiku-4-5-20251001" },
+            { "name": "max_tokens", "value": "800" },
+            {
+              "name": "messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"Génère un rapport hebdomadaire exécutif en HTML pour TANGER NEXUS 2026. KPIs: cibles={{ $('Récupérer KPIs').first().json.cibles_identifiees }}/500, sponsors={{ $('Récupérer KPIs').first().json.sponsors_confirmes }}/15, RDV={{ $('Récupérer KPIs').first().json.rdv_obtenus }}/50, emails={{ $('Récupérer KPIs').first().json.emails_envoyes }}/250. Inclure: analyse de la semaine, 3 priorités pour la semaine prochaine, alertes si KPI sous 50% objectif. Style sobre et professionnel.\" }]"
+            }
+          ]
+        }
+      },
+      "id": "claude-report",
+      "name": "Générer Rapport Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://api.brevo.com/v3/smtp/email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "api-key", "value": "={{ $env.BREVO_API_KEY }}" }]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "sender", "value": "={ \"name\": \"Nexus Platform\", \"email\": \"t.primesynergy@gmail.com\" }" },
+            { "name": "to", "value": "=[{ \"email\": \"t.primesynergy@gmail.com\", \"name\": \"Prime Synergy\" }]" },
+            { "name": "subject", "value": "📊 NEXUS Weekly — Rapport du {{ new Date().toLocaleDateString('fr-FR') }}" },
+            { "name": "htmlContent", "value": "={{ $json.content[0].text }}" }
+          ]
+        }
+      },
+      "id": "send-report",
+      "name": "Envoyer Rapport",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXUS_PLATFORM_URL }}/api/kpis/update",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "last_weekly_report", "value": "={{ new Date().toISOString() }}" }
+          ]
+        }
+      },
+      "id": "update-platform",
+      "name": "Sync Platform",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1100, 400]
+    }
+  ],
+  "connections": {
+    "Lundi 8h": { "main": [[{ "node": "Récupérer KPIs", "type": "main", "index": 0 }, { "node": "Stats Workflows", "type": "main", "index": 0 }]] },
+    "Récupérer KPIs": { "main": [[{ "node": "Générer Rapport Claude", "type": "main", "index": 0 }]] },
+    "Stats Workflows": { "main": [[{ "node": "Générer Rapport Claude", "type": "main", "index": 0 }]] },
+    "Générer Rapport Claude": { "main": [[{ "node": "Envoyer Rapport", "type": "main", "index": 0 }]] },
+    "Envoyer Rapport": { "main": [[{ "node": "Sync Platform", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": ["nexus-2026", "dashboard", "reporting", "automatique"]
+}

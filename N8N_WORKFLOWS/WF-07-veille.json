@@ -1,0 +1,107 @@
+{
+  "name": "WF-07 — Veille Stratégique (Perplexity + Claude AI)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 24 }] }
+      },
+      "id": "schedule",
+      "name": "Trigger Quotidien 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT DISTINCT sector FROM targets WHERE project_id = 'TNG-NEXUS-2026' AND status NOT IN ('lost','won')",
+        "additionalFields": {}
+      },
+      "id": "get-sectors",
+      "name": "Récupérer Secteurs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "url": "https://api.perplexity.ai/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $env.PERPLEXITY_API_KEY }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "llama-3.1-sonar-large-128k-online" },
+            {
+              "name": "messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"Donne-moi les dernières actualités business importantes au Maroc pour les secteurs suivants: {{ $json.sectors }}. Focus sur: nouvelles filiales, expansions, événements sectoriels, changements de direction. Pertinence pour organiser un expo industriel à Tanger en octobre 2026. Format JSON avec array d'actualités.\" }]"
+            }
+          ]
+        }
+      },
+      "id": "perplexity-veille",
+      "name": "Veille Perplexity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "claude-haiku-4-5-20251001" },
+            { "name": "max_tokens", "value": "800" },
+            {
+              "name": "messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"Analyse ces actualités et identifie les 5 plus importantes pour la prospection TANGER NEXUS 2026. Pour chaque actualité: impact sur notre prospection, action recommandée, cibles potentielles à ajouter. Actualités: {{ $json.choices[0].message.content }}\" }]"
+            }
+          ]
+        }
+      },
+      "id": "claude-analyze",
+      "name": "Analyser avec Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXUS_PLATFORM_URL }}/api/kpis/update",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "last_veille", "value": "={{ new Date().toISOString() }}" },
+            { "name": "veille_summary", "value": "={{ $json.content[0].text.substring(0, 500) }}" }
+          ]
+        }
+      },
+      "id": "update-platform",
+      "name": "Notifier Platform",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1100, 300]
+    }
+  ],
+  "connections": {
+    "Trigger Quotidien 8h": { "main": [[{ "node": "Récupérer Secteurs", "type": "main", "index": 0 }]] },
+    "Récupérer Secteurs": { "main": [[{ "node": "Veille Perplexity", "type": "main", "index": 0 }]] },
+    "Veille Perplexity": { "main": [[{ "node": "Analyser avec Claude", "type": "main", "index": 0 }]] },
+    "Analyser avec Claude": { "main": [[{ "node": "Notifier Platform", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": ["nexus-2026", "veille", "automatique"]
+}

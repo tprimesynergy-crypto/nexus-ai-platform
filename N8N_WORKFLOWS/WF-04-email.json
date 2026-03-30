@@ -1,0 +1,129 @@
+{
+  "name": "WF-04 — Email Personnalisé (Claude AI + Brevo)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf04-email",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-wf04",
+      "name": "Webhook Email",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM targets WHERE id = $1 AND contact_email IS NOT NULL",
+        "additionalFields": {}
+      },
+      "id": "get-target",
+      "name": "Récupérer Contact",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "claude-sonnet-4-6" },
+            { "name": "max_tokens", "value": "1000" },
+            {
+              "name": "messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"Écris un email de prospection professionnel et personnalisé en français pour {{ $json.contact_name }} ({{ $json.contact_title }}) de {{ $json.company_name }} (secteur {{ $json.sector }}). L'événement: TANGER NEXUS EXPO & SUMMIT 2026, 21 octobre 2026, Tanger, Maroc. Offre proposée: {{ $json.offer_type }}. Ton: professionnel, concis, percutant. Max 200 mots. Inclure objet email. Format JSON: {subject, body}\" }]"
+            }
+          ]
+        }
+      },
+      "id": "claude-email",
+      "name": "Générer Email Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst content = response.content[0].text;\nlet email;\ntry { email = JSON.parse(content); } catch(e) { email = { subject: 'TANGER NEXUS 2026', body: content }; }\nconst target = $('Récupérer Contact').first().json;\nreturn [{ json: { ...target, email_subject: email.subject, email_body: email.body } }];"
+      },
+      "id": "parse-email",
+      "name": "Parser Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.brevo.com/v3/smtp/email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "api-key", "value": "={{ $env.BREVO_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "sender", "value": "={ \"name\": \"Prime Synergy Group\", \"email\": \"t.primesynergy@gmail.com\" }" },
+            { "name": "to", "value": "=[{ \"email\": \"{{ $json.contact_email }}\", \"name\": \"{{ $json.contact_name }}\" }]" },
+            { "name": "subject", "value": "={{ $json.email_subject }}" },
+            { "name": "htmlContent", "value": "={{ '<p>' + $json.email_body.replace(/\\n/g, '</p><p>') + '</p>' }}" }
+          ]
+        }
+      },
+      "id": "brevo-send",
+      "name": "Envoyer via Brevo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE targets SET status = 'contacted', last_contact_date = NOW(), updated_at = NOW() WHERE id = $1",
+        "additionalFields": {}
+      },
+      "id": "update-status",
+      "name": "Marquer Contacté",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1300, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, sent: true, to: $json.contact_email }) }}"
+      },
+      "id": "respond",
+      "name": "Répondre",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1500, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Email": { "main": [[{ "node": "Récupérer Contact", "type": "main", "index": 0 }]] },
+    "Récupérer Contact": { "main": [[{ "node": "Générer Email Claude", "type": "main", "index": 0 }]] },
+    "Générer Email Claude": { "main": [[{ "node": "Parser Email", "type": "main", "index": 0 }]] },
+    "Parser Email": { "main": [[{ "node": "Envoyer via Brevo", "type": "main", "index": 0 }]] },
+    "Envoyer via Brevo": { "main": [[{ "node": "Marquer Contacté", "type": "main", "index": 0 }]] },
+    "Marquer Contacté": { "main": [[{ "node": "Répondre", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": ["nexus-2026", "email", "brevo", "claude-ai"]
+}

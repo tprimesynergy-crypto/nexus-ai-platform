@@ -1,0 +1,119 @@
+{
+  "name": "WF-05 — Newsletter Mensuelle (Claude AI + Brevo)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 9 1 * *" }] }
+      },
+      "id": "schedule-monthly",
+      "name": "1er du mois 9h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf05-newsletter",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-wf05",
+      "name": "Webhook Newsletter",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 500]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) as total, SUM(CASE WHEN status='won' THEN 1 ELSE 0 END) as sponsors, SUM(CASE WHEN status='contacted' THEN 1 ELSE 0 END) as en_cours, ROUND(AVG(score),0) as avg_score FROM targets WHERE project_id = 'TNG-NEXUS-2026'",
+        "additionalFields": {}
+      },
+      "id": "get-stats",
+      "name": "Stats Pipeline",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [460, 400],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "claude-sonnet-4-6" },
+            { "name": "max_tokens", "value": "2000" },
+            {
+              "name": "messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"Crée une newsletter mensuelle professionnelle HTML pour TANGER NEXUS EXPO & SUMMIT 2026 (21 octobre 2026, Tanger). Stats du mois: {{ $json.total }} cibles, {{ $json.sponsors }} sponsors confirmés, {{ $json.en_cours }} en cours de négociation. Include: 1) Éditorial du Directeur, 2) Chiffres clés de l'avancement, 3) Actualité du secteur expo au Maroc, 4) Spotlight entreprise participante, 5) Call to action inscription. Style professionnel, couleurs: #0f172a (fond sombre), #6366f1 (accent violet). HTML complet avec inline styles.\" }]"
+            }
+          ]
+        }
+      },
+      "id": "claude-newsletter",
+      "name": "Générer Newsletter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://api.brevo.com/v3/emailCampaigns",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "api-key", "value": "={{ $env.BREVO_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "name", "value": "Newsletter NEXUS - {{ new Date().toLocaleDateString('fr-FR', {month: 'long', year: 'numeric'}) }}" },
+            { "name": "subject", "value": "🚀 TANGER NEXUS 2026 — Bulletin {{ new Date().toLocaleDateString('fr-FR', {month: 'long', year: 'numeric'}) }}" },
+            { "name": "sender", "value": "={ \"name\": \"TANGER NEXUS 2026\", \"email\": \"t.primesynergy@gmail.com\" }" },
+            { "name": "htmlContent", "value": "={{ $json.content[0].text }}" },
+            { "name": "recipients", "value": "={ \"listIds\": [parseInt($env.BREVO_LIST_ID || '1')] }" },
+            { "name": "scheduledAt", "value": "={{ new Date(Date.now() + 3600000).toISOString() }}" }
+          ]
+        }
+      },
+      "id": "brevo-campaign",
+      "name": "Créer Campagne Brevo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO campaigns (id, project_id, campaign_type, subject, status, brevo_list_id) VALUES ($1, 'TNG-NEXUS-2026', 'newsletter', $2, 'scheduled', $3)",
+        "additionalFields": {}
+      },
+      "id": "save-campaign",
+      "name": "Enregistrer Campagne",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1100, 400],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    }
+  ],
+  "connections": {
+    "1er du mois 9h": { "main": [[{ "node": "Stats Pipeline", "type": "main", "index": 0 }]] },
+    "Webhook Newsletter": { "main": [[{ "node": "Stats Pipeline", "type": "main", "index": 0 }]] },
+    "Stats Pipeline": { "main": [[{ "node": "Générer Newsletter", "type": "main", "index": 0 }]] },
+    "Générer Newsletter": { "main": [[{ "node": "Créer Campagne Brevo", "type": "main", "index": 0 }]] },
+    "Créer Campagne Brevo": { "main": [[{ "node": "Enregistrer Campagne", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": ["nexus-2026", "newsletter", "brevo", "automatique"]
+}

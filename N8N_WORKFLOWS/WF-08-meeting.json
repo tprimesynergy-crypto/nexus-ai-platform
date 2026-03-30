@@ -1,0 +1,115 @@
+{
+  "name": "WF-08 — Meeting Prep & Dossier RDV",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf08-meeting",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-wf08",
+      "name": "Webhook Meeting",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT t.*, d.file_path as research_file FROM targets t LEFT JOIN deliverables d ON d.target_id = t.id AND d.deliverable_type = 'research_sheet' WHERE t.id = $1",
+        "additionalFields": {}
+      },
+      "id": "get-target",
+      "name": "Récupérer Dossier",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "claude-sonnet-4-6" },
+            { "name": "max_tokens", "value": "2000" },
+            {
+              "name": "messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"Prépare un dossier de réunion complet pour un RDV avec {{ $json.contact_name }} ({{ $json.contact_title }}) de {{ $json.company_name }}. Contexte: proposer une participation à TANGER NEXUS EXPO & SUMMIT 2026, 21 octobre, Tanger. Offre cible: {{ $json.offer_type }}. Score: {{ $json.score }}/100. Génère: 1) Résumé exécutif entreprise (5 points clés), 2) Proposition commerciale personnalisée avec ROI estimé, 3) Questions d'ouverture stratégiques (5), 4) Objections probables et réponses préparées, 5) Prochaines étapes suggérées, 6) Éléments de closing. Format professionnel.\" }]"
+            }
+          ]
+        }
+      },
+      "id": "claude-meeting",
+      "name": "Préparer Dossier Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.brevo.com/v3/smtp/email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "api-key", "value": "={{ $env.BREVO_API_KEY }}" }]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "sender", "value": "={ \"name\": \"Nexus Platform\", \"email\": \"t.primesynergy@gmail.com\" }" },
+            { "name": "to", "value": "=[{ \"email\": \"t.primesynergy@gmail.com\" }]" },
+            { "name": "subject", "value": "📋 Dossier RDV — {{ $('Récupérer Dossier').first().json.company_name }}" },
+            { "name": "htmlContent", "value": "<h2>Dossier de Réunion</h2><p><strong>Entreprise:</strong> {{ $('Récupérer Dossier').first().json.company_name }}</p><p><strong>Contact:</strong> {{ $('Récupérer Dossier').first().json.contact_name }}</p><hr><pre style='white-space:pre-wrap'>{{ $json.content[0].text }}</pre>" }
+          ]
+        }
+      },
+      "id": "send-dossier",
+      "name": "Envoyer Dossier Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE targets SET status = 'meeting', updated_at = NOW() WHERE id = $1 AND status NOT IN ('won', 'lost')",
+        "additionalFields": {}
+      },
+      "id": "update-status",
+      "name": "Marquer En RDV",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1100, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, dossier: $('Préparer Dossier Claude').first().json.content[0].text, sent_to: 't.primesynergy@gmail.com' }) }}"
+      },
+      "id": "respond",
+      "name": "Répondre",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1300, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Meeting": { "main": [[{ "node": "Récupérer Dossier", "type": "main", "index": 0 }]] },
+    "Récupérer Dossier": { "main": [[{ "node": "Préparer Dossier Claude", "type": "main", "index": 0 }]] },
+    "Préparer Dossier Claude": { "main": [[{ "node": "Envoyer Dossier Email", "type": "main", "index": 0 }]] },
+    "Envoyer Dossier Email": { "main": [[{ "node": "Marquer En RDV", "type": "main", "index": 0 }]] },
+    "Marquer En RDV": { "main": [[{ "node": "Répondre", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": ["nexus-2026", "meeting", "commercial"]
+}

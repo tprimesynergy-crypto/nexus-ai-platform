@@ -1,0 +1,76 @@
+{
+  "name": "WF-09 — Pipeline Update & Scoring Automatique",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 6 }] }
+      },
+      "id": "schedule-6h",
+      "name": "Toutes les 6h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM targets WHERE project_id = 'TNG-NEXUS-2026' AND status NOT IN ('won', 'lost') AND updated_at < NOW() - INTERVAL '7 days' ORDER BY score DESC LIMIT 20",
+        "additionalFields": {}
+      },
+      "id": "get-stale",
+      "name": "Targets Inactifs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Recalculer scores et identifier les priorités\nconst targets = $input.all().map(item => item.json);\nconst now = new Date();\nconst deadline = new Date('2026-10-21');\nconst daysLeft = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));\n\nconst updates = targets.map(t => {\n  // Pénaliser l'inactivité\n  const daysSinceContact = t.last_contact_date \n    ? Math.ceil((now - new Date(t.last_contact_date)) / (1000 * 60 * 60 * 24)) \n    : 999;\n  \n  let newScore = parseInt(t.score || 0);\n  \n  // Urgence temporelle\n  if (daysLeft < 60) newScore += 10;\n  if (daysLeft < 30) newScore += 20;\n  \n  // Pénalité inactivité\n  if (daysSinceContact > 30) newScore -= 15;\n  if (daysSinceContact > 60) newScore -= 25;\n  \n  // Bonus stade avancé\n  const stageBonus = { identified: 0, researching: 5, ready: 10, contacted: 15, replied: 25, meeting: 35, proposal: 45, negotiating: 55 };\n  newScore += stageBonus[t.status] || 0;\n  \n  newScore = Math.max(0, Math.min(100, newScore));\n  \n  return { \n    id: t.id, \n    company_name: t.company_name,\n    old_score: t.score,\n    new_score: newScore,\n    days_inactive: daysSinceContact,\n    action_needed: daysSinceContact > 14 ? 'follow_up' : 'monitor'\n  };\n});\n\nreturn updates.map(u => ({ json: u }));"
+      },
+      "id": "recalculate",
+      "name": "Recalculer Scores",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE targets SET score = $2, updated_at = NOW() WHERE id = $1",
+        "additionalFields": {}
+      },
+      "id": "update-scores",
+      "name": "Mettre à Jour Scores",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXUS_PLATFORM_URL }}/api/kpis/update",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "last_pipeline_update", "value": "={{ new Date().toISOString() }}" },
+            { "name": "pipeline_updated_count", "value": "={{ $input.all().length }}" }
+          ]
+        }
+      },
+      "id": "notify-platform",
+      "name": "Notifier Platform",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1100, 300]
+    }
+  ],
+  "connections": {
+    "Toutes les 6h": { "main": [[{ "node": "Targets Inactifs", "type": "main", "index": 0 }]] },
+    "Targets Inactifs": { "main": [[{ "node": "Recalculer Scores", "type": "main", "index": 0 }]] },
+    "Recalculer Scores": { "main": [[{ "node": "Mettre à Jour Scores", "type": "main", "index": 0 }]] },
+    "Mettre à Jour Scores": { "main": [[{ "node": "Notifier Platform", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": ["nexus-2026", "pipeline", "scoring", "automatique"]
+}

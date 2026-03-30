@@ -1,0 +1,77 @@
+{
+  "name": "WF-01 — Intake & Qualification Targets",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf01-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-wf01",
+      "name": "Webhook Intake",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Valider et enrichir les données\nconst data = $input.first().json;\nconst { company_name, sector, website, contact_email, offer_type } = data;\n\nif (!company_name) throw new Error('company_name requis');\n\n// Scoring initial basé sur critères\nlet score = 0;\nif (sector === 'Industrie' || sector === 'Finance') score += 30;\nif (website) score += 10;\nif (contact_email) score += 20;\nif (offer_type === 'Sponsor Platine') score += 40;\nelse if (offer_type === 'Sponsor Or') score += 30;\nelse if (offer_type === 'Exposant') score += 20;\n\nreturn [{ json: { ...data, score, status: 'identified', qualified: score >= 30 } }];"
+      },
+      "id": "code-qualify",
+      "name": "Qualifier & Scorer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO targets (id, project_id, company_name, sector, website, contact_name, contact_email, offer_type, priority, score, status, research_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $9 >= 50 THEN 'hot' WHEN $9 >= 30 THEN 'warm' ELSE 'cold' END, $9, 'identified', 'pending') ON CONFLICT (id) DO NOTHING RETURNING *",
+        "additionalFields": {}
+      },
+      "id": "postgres-insert",
+      "name": "Enregistrer en DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXUS_PLATFORM_URL }}/api/callback/{{ $json.runId }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "status", "value": "completed" },
+            { "name": "result", "value": "={{ JSON.stringify($json) }}" }
+          ]
+        }
+      },
+      "id": "callback",
+      "name": "Callback Platform",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, targetId: $json.id, score: $json.score }) }}"
+      },
+      "id": "respond",
+      "name": "Répondre",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1100, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Intake": { "main": [[{ "node": "Qualifier & Scorer", "type": "main", "index": 0 }]] },
+    "Qualifier & Scorer": { "main": [[{ "node": "Enregistrer en DB", "type": "main", "index": 0 }]] },
+    "Enregistrer en DB": { "main": [[{ "node": "Callback Platform", "type": "main", "index": 0 }]] },
+    "Callback Platform": { "main": [[{ "node": "Répondre", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": ["nexus-2026", "pipeline", "intake"]
+}

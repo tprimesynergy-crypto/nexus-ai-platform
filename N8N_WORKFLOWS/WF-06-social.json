@@ -1,0 +1,106 @@
+{
+  "name": "WF-06 — Contenu Social Media (LinkedIn + Instagram)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf06-social",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-wf06",
+      "name": "Webhook Social",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "claude-sonnet-4-6" },
+            { "name": "max_tokens", "value": "1200" },
+            {
+              "name": "messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"Crée du contenu social media pour TANGER NEXUS EXPO & SUMMIT 2026 (21 octobre 2026, Tanger, Maroc). Thème demandé: {{ $json.theme || 'présentation événement' }}. Génère: 1) Post LinkedIn professionnel (300 mots max, hashtags, emoji), 2) Post Instagram (caption engageant, hashtags), 3) Tweet/X (280 caractères max). Langue: {{ $json.langue || 'français' }}. Ton: professionnel mais dynamique. Format JSON: {linkedin, instagram, twitter}\" }]"
+            }
+          ]
+        }
+      },
+      "id": "claude-social",
+      "name": "Générer Contenu Social",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst content = response.content[0].text;\nlet posts;\ntry { posts = JSON.parse(content); } catch(e) { posts = { linkedin: content, instagram: content, twitter: content.substring(0, 280) }; }\nreturn [{ json: { posts, runId: $('Webhook Social').first().json.runId, requiresApproval: true } }];"
+      },
+      "id": "parse-posts",
+      "name": "Parser Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO deliverables (id, project_id, deliverable_type, file_path, status) VALUES ($1, 'TNG-NEXUS-2026', 'social_post', $2, 'pending_review')",
+        "additionalFields": {}
+      },
+      "id": "save-for-approval",
+      "name": "Soumettre Approbation",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.NEXUS_PLATFORM_URL }}/api/callback/{{ $json.runId }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "status", "value": "completed" },
+            { "name": "result", "value": "={{ JSON.stringify($json.posts) }}" }
+          ]
+        }
+      },
+      "id": "callback",
+      "name": "Callback Platform",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, posts: $json.posts, status: 'pending_review', message: 'Contenu soumis pour approbation' }) }}"
+      },
+      "id": "respond",
+      "name": "Répondre",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1300, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Social": { "main": [[{ "node": "Générer Contenu Social", "type": "main", "index": 0 }]] },
+    "Générer Contenu Social": { "main": [[{ "node": "Parser Posts", "type": "main", "index": 0 }]] },
+    "Parser Posts": { "main": [[{ "node": "Soumettre Approbation", "type": "main", "index": 0 }]] },
+    "Soumettre Approbation": { "main": [[{ "node": "Callback Platform", "type": "main", "index": 0 }]] },
+    "Callback Platform": { "main": [[{ "node": "Répondre", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": ["nexus-2026", "social-media", "content"]
+}

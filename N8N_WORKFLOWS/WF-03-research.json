@@ -1,0 +1,103 @@
+{
+  "name": "WF-03 — Research & Fiche Entreprise (Claude AI)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf03-research",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-wf03",
+      "name": "Webhook Research",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM targets WHERE id = $1",
+        "additionalFields": {}
+      },
+      "id": "get-target",
+      "name": "Récupérer Target",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "claude-opus-4-6" },
+            { "name": "max_tokens", "value": "2000" },
+            {
+              "name": "messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"Analyse l'entreprise {{ $json.company_name }} (secteur: {{ $json.sector }}, site: {{ $json.website }}) pour l'événement TANGER NEXUS EXPO & SUMMIT 2026. Crée une fiche complète avec: 1) Profil entreprise, 2) Activité au Maroc, 3) Synergies avec l'événement, 4) Proposition d'offre recommandée (Sponsor Platine/Or/Argent ou Exposant), 5) Points de contact suggérés, 6) Score potentiel /100. Format JSON.\" }]"
+            }
+          ]
+        }
+      },
+      "id": "claude-research",
+      "name": "Claude AI Research",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst content = response.content[0].text;\nlet fiche;\ntry { fiche = JSON.parse(content); } catch(e) { fiche = { raw: content }; }\nconst targetId = $('Récupérer Target').first().json.id;\nreturn [{ json: { targetId, fiche, research_status: 'validated', score: fiche.score || 50 } }];"
+      },
+      "id": "parse-result",
+      "name": "Parser Résultat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE targets SET research_status = 'validated', score = $2, notes = $3, updated_at = NOW() WHERE id = $1",
+        "additionalFields": {}
+      },
+      "id": "update-target",
+      "name": "Mettre à jour Target",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1100, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, fiche: $json.fiche }) }}"
+      },
+      "id": "respond",
+      "name": "Répondre",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1300, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Research": { "main": [[{ "node": "Récupérer Target", "type": "main", "index": 0 }]] },
+    "Récupérer Target": { "main": [[{ "node": "Claude AI Research", "type": "main", "index": 0 }]] },
+    "Claude AI Research": { "main": [[{ "node": "Parser Résultat", "type": "main", "index": 0 }]] },
+    "Parser Résultat": { "main": [[{ "node": "Mettre à jour Target", "type": "main", "index": 0 }]] },
+    "Mettre à jour Target": { "main": [[{ "node": "Répondre", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": ["nexus-2026", "research", "claude-ai"]
+}

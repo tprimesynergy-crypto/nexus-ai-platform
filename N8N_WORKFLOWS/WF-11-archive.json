@@ -1,0 +1,98 @@
+{
+  "name": "WF-11 — Archive, Export & Backup",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf11-archive",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-wf11",
+      "name": "Webhook Archive",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT t.*, COUNT(d.id) as deliverables_count, COUNT(c.id) as campaigns_count FROM targets t LEFT JOIN deliverables d ON d.target_id = t.id LEFT JOIN campaigns c ON c.project_id = t.project_id WHERE t.project_id = 'TNG-NEXUS-2026' GROUP BY t.id ORDER BY t.score DESC",
+        "additionalFields": {}
+      },
+      "id": "export-data",
+      "name": "Exporter Toutes les Données",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Formater en CSV\nconst targets = $input.all().map(i => i.json);\nconst headers = ['id','company_name','sector','contact_name','contact_email','contact_phone','status','priority','score','offer_type','last_contact_date','notes'];\nconst csv = [headers.join(',')];\ntargets.forEach(t => {\n  const row = headers.map(h => {\n    const val = t[h] || '';\n    return typeof val === 'string' && val.includes(',') ? `\"${val}\"` : val;\n  });\n  csv.push(row.join(','));\n});\nconst csvContent = csv.join('\\n');\nconst timestamp = new Date().toISOString().split('T')[0];\nreturn [{ json: { csv: csvContent, filename: `nexus-targets-${timestamp}.csv`, count: targets.length, timestamp } }];"
+      },
+      "id": "format-csv",
+      "name": "Formater CSV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.brevo.com/v3/smtp/email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "api-key", "value": "={{ $env.BREVO_API_KEY }}" }]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "sender", "value": "={ \"name\": \"Nexus Platform\", \"email\": \"t.primesynergy@gmail.com\" }" },
+            { "name": "to", "value": "=[{ \"email\": \"t.primesynergy@gmail.com\" }]" },
+            { "name": "subject", "value": "📦 NEXUS Archive — Export {{ $json.timestamp }}" },
+            { "name": "htmlContent", "value": "<h2>Export données NEXUS 2026</h2><p>Date: {{ $json.timestamp }}</p><p>Nombre de targets: <strong>{{ $json.count }}</strong></p><p>Le fichier CSV est disponible sur la plateforme.</p>" },
+            { "name": "attachment", "value": "=[{ \"content\": \"{{ Buffer.from($json.csv).toString('base64') }}\", \"name\": \"{{ $json.filename }}\", \"type\": \"text/csv\" }]" }
+          ]
+        }
+      },
+      "id": "send-export",
+      "name": "Envoyer Export",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO run_logs (run_id, workflow_id, workflow_name, status, result, started_at, completed_at) VALUES ($1, 'WF-11', 'Archive & Export', 'completed', $2, NOW(), NOW())",
+        "additionalFields": {}
+      },
+      "id": "log-archive",
+      "name": "Logger Archive",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1100, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, exported: $('Formater CSV').first().json.count, filename: $('Formater CSV').first().json.filename, sent_to: 't.primesynergy@gmail.com' }) }}"
+      },
+      "id": "respond",
+      "name": "Répondre",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1300, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Archive": { "main": [[{ "node": "Exporter Toutes les Données", "type": "main", "index": 0 }]] },
+    "Exporter Toutes les Données": { "main": [[{ "node": "Formater CSV", "type": "main", "index": 0 }]] },
+    "Formater CSV": { "main": [[{ "node": "Envoyer Export", "type": "main", "index": 0 }]] },
+    "Envoyer Export": { "main": [[{ "node": "Logger Archive", "type": "main", "index": 0 }]] },
+    "Logger Archive": { "main": [[{ "node": "Répondre", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": ["nexus-2026", "archive", "export", "backup"]
+}

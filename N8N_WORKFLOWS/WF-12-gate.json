@@ -1,0 +1,126 @@
+{
+  "name": "WF-12 — Gate Approbation (Circuit de Validation)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf12-gate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-wf12",
+      "name": "Webhook Gate",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst { action, deliverable, decided_by, comment } = data;\n\n// Vérifier approbation requise\nconst requiresApproval = [\n  'email_campaign', 'newsletter', 'social_post', 'sponsor_proposal', 'press_release'\n];\n\nconst needsApproval = requiresApproval.includes(deliverable?.deliverable_type);\nreturn [{ json: { ...data, needsApproval, autoApprove: !needsApproval } }];"
+      },
+      "id": "check-approval",
+      "name": "Vérifier Approbation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [{ "leftValue": "={{ $json.action }}", "rightValue": "approved" }]
+        }
+      },
+      "id": "if-approved",
+      "name": "Est Approuvé?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.brevo.com/v3/smtp/email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "api-key", "value": "={{ $env.BREVO_API_KEY }}" }]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "sender", "value": "={ \"name\": \"Nexus Platform\", \"email\": \"t.primesynergy@gmail.com\" }" },
+            { "name": "to", "value": "=[{ \"email\": \"t.primesynergy@gmail.com\" }]" },
+            { "name": "subject", "value": "✅ NEXUS — Livrable Approuvé: {{ $json.deliverable.deliverable_type }}" },
+            { "name": "htmlContent", "value": "<h2>Livrable approuvé</h2><p>Type: {{ $json.deliverable.deliverable_type }}</p><p>Approuvé par: {{ $json.decided_by }}</p><p>Commentaire: {{ $json.comment }}</p>" }
+          ]
+        }
+      },
+      "id": "notify-approved",
+      "name": "Notifier Approbation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://api.brevo.com/v3/smtp/email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "api-key", "value": "={{ $env.BREVO_API_KEY }}" }]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "sender", "value": "={ \"name\": \"Nexus Platform\", \"email\": \"t.primesynergy@gmail.com\" }" },
+            { "name": "to", "value": "=[{ \"email\": \"t.primesynergy@gmail.com\" }]" },
+            { "name": "subject", "value": "❌ NEXUS — Livrable Rejeté: {{ $json.deliverable.deliverable_type }}" },
+            { "name": "htmlContent", "value": "<h2>Livrable rejeté</h2><p>Type: {{ $json.deliverable.deliverable_type }}</p><p>Raison: {{ $json.comment }}</p><p>Décidé par: {{ $json.decided_by }}</p>" }
+          ]
+        }
+      },
+      "id": "notify-rejected",
+      "name": "Notifier Rejet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE deliverables SET status = $2, approved_by = $3, approved_at = NOW(), rejection_reason = $4 WHERE id = $1",
+        "additionalFields": {}
+      },
+      "id": "update-db",
+      "name": "Mettre à jour DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1100, 300],
+      "credentials": { "postgres": { "id": "1", "name": "Nexus PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, action: $json.action, processed: true }) }}"
+      },
+      "id": "respond",
+      "name": "Répondre",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1300, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Gate": { "main": [[{ "node": "Vérifier Approbation", "type": "main", "index": 0 }]] },
+    "Vérifier Approbation": { "main": [[{ "node": "Est Approuvé?", "type": "main", "index": 0 }]] },
+    "Est Approuvé?": {
+      "main": [
+        [{ "node": "Notifier Approbation", "type": "main", "index": 0 }],
+        [{ "node": "Notifier Rejet", "type": "main", "index": 0 }]
+      ]
+    },
+    "Notifier Approbation": { "main": [[{ "node": "Mettre à jour DB", "type": "main", "index": 0 }]] },
+    "Notifier Rejet": { "main": [[{ "node": "Mettre à jour DB", "type": "main", "index": 0 }]] },
+    "Mettre à jour DB": { "main": [[{ "node": "Répondre", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": ["nexus-2026", "approvals", "gate"]
+}
